@@ -1,0 +1,15 @@
+database:
+  host: postgres-service
+  port: 5432
+  name: medical_db
+  user: user
+  password: password
+
+api:
+  port: 8000
+  debug: false
+  log_level: info
+
+security:
+  encryption_key: ${ENCRYPTION_KEY}
+  jwt_secret: ${JWT_SECRET}
