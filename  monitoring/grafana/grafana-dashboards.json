@@ -1,0 +1,128 @@
+{
+    "title": "Gateway API Monitoring",
+    "description": "Dashboard complet pour surveiller les performances de la Gateway API",
+    "tags": ["kubernetes", "gateway-api", "monitoring"],
+    "timezone": "browser",
+    "editable": true,
+    "uid": "gateway-api-dashboard",
+    "panels": [
+      {
+        "title": "Trafic HTTP par Route",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(envoy_http_requests_total{route_name=~\"api-http-route|voip-http-route\"}[1m])) by (route_name)",
+            "legendFormat": "{{route_name}}",
+            "refId": "A"
+          }
+        ],
+        "xaxis": {"mode": "time"},
+        "yaxes": [
+          {"format": "reqps", "min": "0"},
+          {"format": "short"}
+        ],
+        "lines": true,
+        "datasource": "Prometheus"
+      },
+      {
+        "title": "Latence des Services (99e percentile)",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(envoy_http_request_duration_milliseconds_bucket[1m])) by (le, service_name))",
+            "legendFormat": "{{service_name}}",
+            "refId": "A"
+          }
+        ],
+        "xaxis": {"mode": "time"},
+        "yaxes": [
+          {"format": "ms", "min": "0"},
+          {"format": "short"}
+        ],
+        "lines": true,
+        "datasource": "Prometheus"
+      },
+      {
+        "title": "Statut des Pods",
+        "type": "status-history",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "kube_pod_status_phase{namespace=~\"default|gateway-system\"}",
+            "legendFormat": "{{pod}} ({{phase}})",
+            "refId": "A"
+          }
+        ],
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "datasource": "Prometheus"
+      },
+      {
+        "title": "Utilisation CPU/Mémoire",
+        "type": "gauge",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(container_memory_working_set_bytes{namespace=~\"default|gateway-system\"}) by (pod)",
+            "legendFormat": "Mémoire: {{pod}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"default|gateway-system\"}[1m])) by (pod) * 100",
+            "legendFormat": "CPU: {{pod}}",
+            "refId": "B"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "title": "Erreurs HTTP",
+        "type": "piechart",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(envoy_http_requests_total{http_status_class=~\"4xx|5xx\"}[5m])) by (http_status_class, route_name)",
+            "legendFormat": "{{http_status_class}} - {{route_name}}",
+            "refId": "A"
+          }
+        ],
+        "datasource": "Prometheus"
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "namespace",
+          "label": "Namespace",
+          "type": "query",
+          "query": "label_values(kube_pod_info, namespace)",
+          "refresh": 2
+        },
+        {
+          "name": "pod",
+          "label": "Pod",
+          "type": "query",
+          "query": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)",
+          "refresh": 2,
+          "dependsOn": ["namespace"]
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Déploiements",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(kube_deployment_status_replicas[1m]) > 0",
+          "title": "Changement de réplicas: {{deployment}}"
+        }
+      ]
+    },
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 1
+  }
