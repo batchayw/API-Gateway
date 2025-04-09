@@ -1,0 +1,25 @@
+apiVersion: v2
+name: gateway-api
+description: Helm chart for multi-protocol Gateway API deployment
+version: 1.0.0
+appVersion: "1.0"
+dependencies:
+  - name: istio
+    version: "1.17.2"
+    repository: "https://istio-release.storage.googleapis.com/charts"
+    condition: istio.enabled
+  - name: cert-manager
+    version: "v1.11.0"
+    repository: "https://charts.jetstack.io"
+    condition: cert-manager.enabled
+  - name: prometheus
+    version: "15.18.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: monitoring.enabled
+keywords:
+  - gateway-api
+  - kubernetes
+  - multi-protocol
+maintainers:
+  - name: William Batchayon
+    email: batchayw@example.com
