@@ -1,0 +1,122 @@
+global:
+  namespace: default
+  domain: example.com
+
+gateway:
+  enabled: true
+  className: istio
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRef: wildcard-cert
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: postgres
+      port: 5432
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: voip
+      port: 5060
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: Same
+
+api:
+  image:
+    repository: registry.example.com/medical-api
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8000"
+
+postgres:
+  enabled: true
+  image: postgres:13-alpine
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  persistence:
+    size: 10Gi
+    storageClass: standard
+
+monitoring:
+  enabled: true
+  prometheus:
+    retention: 7d
+    scrapeInterval: 15s
+    storageSize: 20Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 2Gi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+  grafana:
+    adminPassword: admin
+    resources:
+      limits:
+        cpu: 300m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+cert-manager:
+  enabled: true
+  issuer:
+    email: admin@example.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+
+istio:
+  enabled: true
+  gateway:
+    autoscaleEnabled: true
+    minReplicas: 2
+
+ingress:
+  enabled: false
+  className: nginx
+  host: api.example.com
+  tls: true
+
+voip:
+  enabled: true
+  serviceType: LoadBalancer
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
