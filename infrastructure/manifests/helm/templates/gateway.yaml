@@ -1,0 +1,25 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{ .Release.Name }}-gateway
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+  {{- range .Values.gateway.listeners }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    protocol: {{ .protocol }}
+    {{- if .tls }}
+    tls:
+      mode: {{ .tls.mode }}
+      certificateRefs:
+      - name: {{ .tls.certificateRef }}
+    {{- end }}
+    allowedRoutes:
+      namespaces:
+        from: {{ .allowedRoutes.namespaces.from }}
+  {{- end }}

@@ -1,0 +1,206 @@
+{{- if .Values.monitoring.enabled }}
+# Prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-prometheus-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+      {{- include "gateway-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        {{- include "gateway-api.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.40.5
+        args:
+          - "--config.file=/etc/prometheus/prometheus.yml"
+          - "--storage.tsdb.retention.time={{ .Values.monitoring.prometheus.retention }}"
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-storage
+          mountPath: /prometheus
+        resources:
+          {{- toYaml .Values.monitoring.prometheus.resources | nindent 10 }}
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: {{ .Release.Name }}-prometheus-config
+      - name: prometheus-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-prometheus-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-prometheus-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: http
+  selector:
+    app: prometheus
+    {{- include "gateway-api.selectorLabels" . | nindent 4 }}
+
+---
+# Grafana
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+      {{- include "gateway-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: grafana
+        {{- include "gateway-api.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:9.4.7
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: {{ .Values.monitoring.grafana.adminPassword | quote }}
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
+        resources:
+          {{- toYaml .Values.monitoring.grafana.resources | nindent 10 }}
+      volumes:
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-grafana-pvc
+      - name: grafana-dashboards
+        configMap:
+          name: {{ .Release.Name }}-grafana-dashboards
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-grafana-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: grafana
+    {{- include "gateway-api.selectorLabels" . | nindent 4 }}
+
+---
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-prometheus-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: {{ .Values.monitoring.prometheus.scrapeInterval }}
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+data:
+  gateway-api-dashboard.json: |-
+    {{ .Files.Get "monitoring/grafana/grafana-dashboards.json" | indent 4 }}
+
+---
+# PVCs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-prometheus-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.monitoring.prometheus.storageSize | default "10Gi" }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-grafana-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+{{- end }}

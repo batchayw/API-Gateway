@@ -1,0 +1,24 @@
+Déploiement de Gateway API terminé !
+
+1. Obtenez l'URL de l'application en exécutant :
+{{- if .Values.istio.enabled }}
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+export INGRESS_HOST=$(minikube ip)
+echo "Visitez http://$INGRESS_HOST:$INGRESS_PORT pour utiliser votre application"
+{{- else }}
+echo "La passerelle fonctionne en mode interne au cluster"
+{{- end }}
+
+2. Vérifiez les routes :
+kubectl get gateways,httproute,tcproute,udproute -n {{ .Release.Namespace }}
+
+3. Vérifiez l'état des pods :
+kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+4. Accédez à la surveillance :
+{{- if .Values.monitoring.enabled }}
+kubectl port-forward svc/{{ .Release.Name }}-prometheus-service 9090 -n {{ .Release.Namespace }} &
+kubectl port-forward svc/{{ .Release.Name }}-grafana-service 3000 -n {{ .Release.Namespace }} &
+echo "Prometheus : http://localhost:9090"
+echo "Grafana : http://localhost:3000 (admin/{{ .Values.monitoring.grafana.adminPassword }})"
+{{- end }}

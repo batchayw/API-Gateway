@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-api-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "gateway-api.name" . }}-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ include "gateway-api.name" . }}-gateway
+    ports:
+    - protocol: TCP
+      port: {{ .Values.api.service.port }}
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ include "gateway-api.name" . }}-postgres
+    ports:
+    - protocol: TCP
+      port: 5432

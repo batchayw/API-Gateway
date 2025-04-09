@@ -1,0 +1,66 @@
+# Service principal pour l'API
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-main-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  ports:
+  - name: http
+    port: 80
+    targetPort: {{ .Values.api.service.port }}
+    protocol: TCP
+  - name: metrics
+    port: 9100
+    targetPort: 9100
+    protocol: TCP
+  selector:
+    {{- include "gateway-api.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+
+---
+# Service pour la base de données
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-database-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    {{- include "gateway-api.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+{{- end }}
+
+---
+# Service pour VoIP (UDP)
+{{- if .Values.voip.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-voip-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway-api.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.voip.serviceType | default "LoadBalancer" }}
+  ports:
+  - name: sip
+    port: 5060
+    targetPort: 5060
+    protocol: UDP
+  selector:
+    {{- include "gateway-api.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: voip
+{{- end }}
