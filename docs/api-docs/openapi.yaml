@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Medical Records API
+  description: API pour la gestion des dossiers médicaux via Gateway API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /api/patient/{nss}:
+    get:
+      summary: Get patient information
+      parameters:
+        - name: nss
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{13}$'
+          description: Numéro de Sécurité Sociale à 13 chiffres
+      responses:
+        '200':
+          description: Patient information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient not found
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+
+components:
+  schemas:
+    Patient:
+      type: object
+      properties:
+        personal_info:
+          $ref: '#/components/schemas/PersonalInfo'
+        medical_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicalRecord'
+        academic_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicHistory'
+    PersonalInfo:
+      type: object
+      properties:
+        nss:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        birth_date:
+          type: string
+          format: date
+    MedicalRecord:
+      type: object
+      properties:
+        record_type:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+    AcademicHistory:
+      type: object
+      properties:
+        degree:
+          type: string
+        institution:
+          type: string
+        start_year:
+          type: integer
