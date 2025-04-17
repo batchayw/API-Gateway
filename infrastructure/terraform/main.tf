@@ -13,6 +13,10 @@ terraform {
       source  = "scott-the-programmer/minikube"
       version = "0.3.5"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "1.14.0"
+    }
   }
 }
 
@@ -30,23 +34,80 @@ provider "helm" {
   }
 }
 
+provider "kubectl" {
+  config_path = "~/.kube/config"
+}
+
 resource "minikube_cluster" "gateway_cluster" {
-  cluster_name    = "gateway-api-cluster"
+  cluster_name    = var.cluster_name
   driver          = "docker"
-  nodes           = 3
-  cpus            = 4
-  memory          = 8192
+  nodes           = var.node_count
+  cpus            = var.node_cpus
+  memory          = var.node_memory
   addons          = ["ingress", "metrics-server"]
 }
 
-module "gateway_api" {
-  source = "./modules/gateway_api"
+module "gateway" {
+  source = "./modules/gateway"
 
-  cluster_name = minikube_cluster.gateway_cluster.cluster_name
+  cluster_name   = minikube_cluster.gateway_cluster.cluster_name
+  namespace      = var.namespace
+  gateway_class  = var.gateway_class
+  istio_version  = var.istio_version
+}
+
+module "httproute" {
+  source = "./modules/httproute"
+
+  namespace      = var.namespace
+  gateway_name   = module.gateway.gateway_name
+  depends_on     = [module.gateway]
+}
+
+module "tcproute" {
+  source = "./modules/tcproute"
+
+  namespace      = var.namespace
+  gateway_name   = module.gateway.gateway_name
+  depends_on     = [module.gateway]
+}
+
+module "udproute" {
+  source = "./modules/udproute"
+
+  namespace      = var.namespace
+  gateway_name   = module.gateway.gateway_name
+  depends_on     = [module.gateway]
+}
+
+module "cert_manager" {
+  source = "./modules/cert_manager"
+
+  namespace      = var.namespace
+  email         = var.cert_manager_email
+  depends_on    = [module.gateway]
+}
+
+module "network_policy" {
+  source = "./modules/network_policy"
+
+  namespace      = var.namespace
+  depends_on     = [module.gateway]
 }
 
 module "monitoring" {
   source = "./modules/monitoring"
 
-  depends_on = [module.gateway_api]
+  namespace      = var.namespace
+  prometheus_retention = var.prometheus_retention
+  depends_on     = [module.gateway]
+}
+
+module "ingress" {
+  source = "./modules/ingress"
+  count  = var.enable_ingress ? 1 : 0
+
+  namespace      = var.namespace
+  domain         = var.domain
+  depends_on     = [module.cert_manager]
 }
