@@ -3,13 +3,23 @@ output "cluster_name" {
   value       = minikube_cluster.gateway_cluster.cluster_name
 }
 
-output "kubeconfig" {
-  description = "Path to the kubeconfig file"
-  value       = minikube_cluster.gateway_cluster.kubeconfig_path
+output "gateway_endpoint" {
+  description = "Gateway API endpoint"
+  value       = module.gateway.gateway_endpoint
+}
+
+output "prometheus_url" {
+  description = "Prometheus dashboard URL"
+  value       = module.monitoring.prometheus_url
+}
+
+output "grafana_url" {
+  description = "Grafana dashboard URL"
+  value       = module.monitoring.grafana_url
   sensitive   = true
 }
 
-output "gateway_endpoint" {
-  description = "Endpoint for the Gateway API"
-  value       = module.gateway_api.gateway_endpoint
+output "ingress_ip" {
+  description = "Ingress controller external IP"
+  value       = var.enable_ingress ? module.ingress[0].ingress_ip : null
 }
